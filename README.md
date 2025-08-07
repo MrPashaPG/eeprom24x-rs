@@ -7,9 +7,10 @@
 [![Coverage Status](https://coveralls.io/repos/eldruin/eeprom24x-rs/badge.svg?branch=master)](https://coveralls.io/r/eldruin/eeprom24x-rs?branch=master)
 
 This is a platform agnostic Rust driver for the 24x series serial EEPROM,
-based on the [`embedded-hal`] traits.
+based on the [`embedded-hal`] and [`embedded-hal-async`] traits.
 
 [`embedded-hal`]: https://github.com/rust-embedded/embedded-hal
+[`embedded-hal-async`]: https://github.com/rust-embedded/embedded-hal/tree/master/embedded-hal-async
 
 This driver allows you to:
 
@@ -20,6 +21,7 @@ This driver allows you to:
 - Write a byte array (up to a memory page) to a memory address. See: `write_page()`.
 - Read `CSx`-variant devices' factory-programmed unique serial. See: `read_unique_serial()`.
 - Use the device in generic code via the `Eeprom24xTrait`.
+- **Async operations** when the `async` feature is enabled. See: `Eeprom24xAsyncTrait`.
 
 Can be used at least with the devices listed below.
 
@@ -106,7 +108,141 @@ fn main() {
 }
 ```
 
+### Async Usage with Embassy
+
+For async usage, enable the `async` feature:
+
+```toml
+[dependencies]
+eeprom24x = { version = "0.8.0", features = ["async"] }
+```
+
+#### Example with `I2cDevice`
+#### Using with esp-hal embassy-embedded-hal I2cDevice
+
+```rust
+use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
+use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
+use esp_hal::{
+    i2c::master::{Config as I2cConfig, I2c},
+    peripherals::Peripherals,
+    time::Rate,
+};
+use static_cell::StaticCell;
+
+type I2c0 = Mutex<NoopRawMutex, I2c<'static, esp_hal::Async>>;
+
+async fn async_example(peripherals: Peripherals) {
+    let i2c0_init = I2c::new(
+        peripherals.I2C0,
+        I2cConfig::default().with_frequency(Rate::from_khz(100)),
+    )
+    .unwrap()
+    .with_sda(peripherals.GPIO8)
+    .with_scl(peripherals.GPIO9)
+    .into_async();
+
+    static I2C0: StaticCell<I2c0> = StaticCell::new();
+    let i2c0 = I2C0.init(Mutex::new(i2c0_init));
+
+    let i2c_device = I2cDevice::new(i2c0);
+    let address = SlaveAddr::default();
+    let mut eeprom = Eeprom24x::new_24x256_async(i2c_device, address);
+    let memory_address = 0x1234;
+    let data = 0xAB;
+
+    eeprom.write_byte_async(memory_address, data).await.unwrap();
+
+    Timer::after_millis(5).await;
+
+    let read_data = eeprom.read_byte_async(memory_address).await.unwrap();
+
+    println!(
+        "Read memory address: {}, retrieved content: {}",
+        memory_address, &read_data
+    );
+
+    let _dev = eeprom.destroy_async(); // Get the I2C device back
+}
+```
+
+#### Example with `I2cDeviceWithConfig`
+
+```rust
+use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
+use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
+use esp_hal::{
+    i2c::master::{Config as I2cConfig, I2c},
+    peripherals::Peripherals,
+    time::Rate,
+};
+use static_cell::StaticCell;
+
+type I2c0 = Mutex<NoopRawMutex, I2c<'static, esp_hal::Async>>;
+
+async fn async_example(peripherals: Peripherals) {
+    let i2c0_init = I2c::new(
+        peripherals.I2C0,
+        I2cConfig::default(),
+    )
+    .unwrap()
+    .with_sda(peripherals.GPIO8)
+    .with_scl(peripherals.GPIO9)
+    .into_async();
+
+    static I2C0: StaticCell<I2c0> = StaticCell::new();
+    let i2c0 = I2C0.init(Mutex::new(i2c0_init));
+
+    let config = I2cConfig::default().with_frequency(Rate::from_khz(100)); // 100kHz
+    let i2c_device = I2cDeviceWithConfig::new(i2c0, config);
+    let address = SlaveAddr::default();
+    let mut eeprom = Eeprom24x::new_24x256_async(i2c_device, address);
+    let memory_address = 0x1234;
+    let data = 0xAB;
+
+    eeprom.write_byte_async(memory_address, data).await.unwrap();
+
+    Timer::after_millis(5).await;
+
+    let read_data = eeprom.read_byte_async(memory_address).await.unwrap();
+
+    println!(
+        "Read memory address: {}, retrieved content: {}",
+        memory_address, &read_data
+    );
+
+    let _dev = eeprom.destroy_async(); // Get the I2C device back
+}
+```
+
 ## Features
+
+### Async Support
+
+This crate supports both blocking and async I2C operations:
+
+- **`blocking`** (default): Uses `embedded-hal` for synchronous/blocking I2C operations
+- **`async`**: Uses `embedded-hal-async` for asynchronous I2C operations
+
+You can use only async support by adding the `async` feature to your `Cargo.toml`:
+
+```toml
+[dependencies]
+eeprom24x = { version = "0.8", default-features = false, features = ["async"] }
+```
+
+Or use both blocking and async features together:
+
+```toml
+[dependencies]
+eeprom24x = { version = "0.8", features = ["async"] }
+```
+
+Or use only blocking:
+
+```toml
+eeprom24x = { version = "0.8" }
+```
 
 ### defmt-03
 
@@ -114,7 +250,7 @@ To enable [defmt](https://crates.io/crates/defmt) (version `0.3.x`) support, whe
 
 ```toml
 [dependencies]
-eeprom24x = { version = "0.7.2", features = ["defmt-03"] }
+eeprom24x = { version = "0.8.0", features = ["defmt-03"] }
 ```
 
 ## Support

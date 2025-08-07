@@ -10,7 +10,8 @@
 //! - Write a byte to a memory address. See: [`write_byte()`].
 //! - Write a byte array (up to a memory page) to a memory address. See: [`write_page()`].
 //! - Read `CSx`-variant devices' factory-programmed unique serial. See: [`read_unique_serial()`].
-//! - Use the device in generic code via the [`Eeprom24xTrait`].
+//! - Use the device in generic code via the [`Eeprom24xTrait`] (when `blocking` feature is enabled).
+//! - **Async operations** when the `async` feature is enabled. See [`Eeprom24xAsyncTrait`].
 //!
 //! [`read_byte()`]: Eeprom24x::read_byte
 //! [`read_data()`]: Eeprom24x::read_data
@@ -19,10 +20,11 @@
 //! [`write_page()`]: Eeprom24x::write_page
 //! [`read_unique_serial()`]: Eeprom24x::read_unique_serial
 //! [`Eeprom24xTrait`]: Eeprom24xTrait
+//! [`Eeprom24xAsyncTrait`]: Eeprom24xAsyncTrait
 //!
 //! If an `embedded_hal::timer::CountDown` is available, the [`embedded-storage`] traits can
 //! additionally be used which allow to read the device capacity and write over page boundaries. To
-//! achieve the latter, the [`Eeprom24x`] has to be wrapped with [`Storage::new`].
+//! achieve the latter, the [`Eeprom24x`] has to be wrapped with [`Storage::new`] (blocking) or async methods.
 //!
 //! [`embedded-storage`]: https://github.com/rust-embedded-community/embedded-storage
 //!
@@ -72,13 +74,31 @@
 //!
 //! ## Features
 //!
+//! ### blocking (default)
+//!
+//! The default feature enables blocking I2C operations using `embedded-hal`. This is the traditional synchronous approach.
+//!
+//! ### async
+//!
+//! To enable asynchronous operations using `embedded-hal-async`, add the feature `async` when specifying the dependency on `eeprom24x`:
+//!
+//! ```toml
+//! [dependencies]
+//! eeprom24x = { version = "0.8.0", features = ["async"] }
+//! ```
+//!
+//! When using the async feature, you can use async variants of all methods (suffixed with `_async`) and the [`Eeprom24xAsyncTrait`].
+//!
+//! **Note**: When using only the `async` feature (without `blocking`), only async methods and traits are available.
+//! This results in optimal compilation with minimal code size.
+//!
 //! ### defmt-03
 //!
 //! To enable [defmt](https://crates.io/crates/defmt) (version `0.3.x`) support, when specifying the dependency on `eeprom24x`, add the feature "`defmt-03`".
 //!
 //! ```toml
 //! [dependencies]
-//! eeprom24x = { version = "0.7.2", features = ["defmt-03"] }
+//! eeprom24x = { version = "0.8.0", features = ["defmt-03"] }
 //! ```
 //!
 //! ## Usage examples (see also examples folder)
@@ -94,12 +114,14 @@
 //!
 //! [driver-examples]: https://github.com/eldruin/driver-examples
 //!
-//! ### Instantiating with the default address
+//! ### Instantiating with the default address (blocking)
 //!
 //! Import this crate and an `embedded_hal` implementation, then instantiate
 //! the device:
 //!
 //! ```no_run
+//! # #[cfg(feature = "blocking")]
+//! # {
 //! use linux_embedded_hal::I2cdev;
 //! use eeprom24x::{ Eeprom24x, SlaveAddr };
 //!
@@ -107,11 +129,32 @@
 //! let address = SlaveAddr::default();
 //! // using the AT24C256
 //! let mut eeprom = Eeprom24x::new_24x256(dev, address);
+//! # }
+//! ```
+//!
+//! ### Instantiating with the default address (async)
+//!
+//! ```no_run
+//! # #[cfg(feature = "async")]
+//! # {
+//! use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
+//! use eeprom24x::{ Eeprom24x, SlaveAddr };
+//!
+//! # async fn example() {
+//! # let shared_bus = todo!();
+//! let dev = I2cDevice::new(shared_bus);
+//! let address = SlaveAddr::default();
+//! // using the AT24C256 (async)
+//! let mut eeprom = Eeprom24x::new_24x256_async(dev, address);
+//! # }
+//! # }
 //! ```
 //!
 //! ### Providing an alternative address
 //!
 //! ```no_run
+//! # #[cfg(feature = "blocking")]
+//! # {
 //! use linux_embedded_hal::I2cdev;
 //! use eeprom24x::{ Eeprom24x, SlaveAddr };
 //!
@@ -121,11 +164,14 @@
 //! let address = SlaveAddr::Alternative(a2, a1, a0);
 //! let mut eeprom = Eeprom24x::new_24x256(dev, address);
 //! # }
+//! # }
 //! ```
 //!
 //! ### Writing and reading a byte
 //!
 //! ```no_run
+//! # #[cfg(feature = "blocking")]
+//! # {
 //! use linux_embedded_hal::I2cdev;
 //! use eeprom24x::{ Eeprom24x, SlaveAddr };
 //!
@@ -136,11 +182,14 @@
 //! eeprom.write_byte(address, data);
 //! // EEPROM enters internally-timed write cycle. Will not respond for some time.
 //! let retrieved_data = eeprom.read_byte(address);
+//! # }
 //! ```
 //!
 //! ### Writing a page
 //!
 //! ```no_run
+//! # #[cfg(feature = "blocking")]
+//! # {
 //! use linux_embedded_hal::I2cdev;
 //! use eeprom24x::{ Eeprom24x, SlaveAddr };
 //!
@@ -150,23 +199,30 @@
 //! let data = [0xAB; 64];
 //! eeprom.write_page(address, &data);
 //! // EEPROM enters internally-timed write cycle. Will not respond for some time.
+//! # }
 //! ```
 //!
-//! ### Using embedded-storage traits
+//! ### Using embedded-storage traits with async
 //!
 //! ```no_run
-//! use linux_embedded_hal::{I2cdev, Delay};
+//! # #[cfg(feature = "async")]
+//! # {
+//! use embassy_embedded_hal::{shared_bus::asynch::i2c::I2cDevice, Delay};
 //! use eeprom24x::{ Eeprom24x, SlaveAddr, Storage };
-//! use embedded_storage::{ReadStorage, Storage as _};
+//! use eeprom24x::storage_async::AsyncStorage;
 //!
-//! let dev = I2cdev::new("/dev/i2c-1").unwrap();
-//! let eeprom = Eeprom24x::new_24x256(dev, SlaveAddr::default());
-//! let mut storage = Storage::new(eeprom, Delay {});
+//! # async fn example() {
+//! # let shared_bus = todo!();
+//! let dev = I2cDevice::new(shared_bus);
+//! let eeprom = Eeprom24x::new_24x256_async(dev, SlaveAddr::default());
+//! let mut storage = Storage::new_async(eeprom, Delay {});
 //! let _capacity = storage.capacity();
 //! let address = 0x1234;
 //! let data = [0xAB; 256];
-//! storage.write(address, &data);
+//! storage.write_async(address, &data).await;
 //! // EEPROM writes four pages. This introduces a delay of at least 20 ms, 5 ms per page.
+//! # }
+//! # }
 //! ```
 
 #![deny(missing_docs, unsafe_code)]
@@ -283,6 +339,7 @@ pub struct Eeprom24x<I2C, PS, AS, SN> {
 }
 
 /// `Eeprom24x` type trait for use in generic code
+#[cfg(feature = "blocking")]
 pub trait Eeprom24xTrait: private::Sealed {
     /// Inner implementation error.
     type Error;
@@ -323,8 +380,68 @@ pub trait Eeprom24xTrait: private::Sealed {
     fn page_size(&self) -> usize;
 }
 
+/// `Eeprom24x` async trait for use in generic async code
+#[cfg(feature = "async")]
+pub trait Eeprom24xAsyncTrait: private::Sealed {
+    /// Inner implementation error.
+    type Error;
+
+    /// Write a single byte in an address asynchronously.
+    ///
+    /// After writing a byte, the EEPROM enters an internally-timed write cycle
+    /// to the nonvolatile memory.
+    /// During this time all inputs are disabled and the EEPROM will not
+    /// respond until the write is complete.
+    fn write_byte_async(
+        &mut self,
+        address: u32,
+        data: u8,
+    ) -> impl core::future::Future<Output = Result<(), Error<Self::Error>>>;
+
+    /// Read a single byte from an address asynchronously.
+    fn read_byte_async(
+        &mut self,
+        address: u32,
+    ) -> impl core::future::Future<Output = Result<u8, Error<Self::Error>>>;
+
+    /// Read starting in an address as many bytes as necessary to fill the data array provided asynchronously.
+    fn read_data_async(
+        &mut self,
+        address: u32,
+        data: &mut [u8],
+    ) -> impl core::future::Future<Output = Result<(), Error<Self::Error>>>;
+
+    /// Read the contents of the last address accessed during the last read
+    /// or write operation, _incremented by one_ asynchronously.
+    ///
+    /// Note: This may not be available on your platform.
+    fn read_current_address_async(
+        &mut self,
+    ) -> impl core::future::Future<Output = Result<u8, Error<Self::Error>>>;
+
+    /// Write up to a page starting in an address asynchronously.
+    ///
+    /// The maximum amount of data that can be written depends on the page
+    /// size of the device and its overall capacity. If too much data is passed,
+    /// the error `Error::TooMuchData` will be returned.
+    ///
+    /// After writing a byte, the EEPROM enters an internally-timed write cycle
+    /// to the nonvolatile memory.
+    /// During this time all inputs are disabled and the EEPROM will not
+    /// respond until the write is complete.
+    fn write_page_async(
+        &mut self,
+        address: u32,
+        data: &[u8],
+    ) -> impl core::future::Future<Output = Result<(), Error<Self::Error>>>;
+
+    /// Return device page size
+    fn page_size(&self) -> usize;
+}
+
 /// EEPROM24X extension which supports the `embedded-storage` traits but requires an
 /// `embedded_hal::delay::DelayNs` to handle the timeouts when writing over page boundaries
+#[cfg(feature = "blocking")]
 #[cfg_attr(feature = "defmt-03", derive(defmt::Format))]
 #[derive(Debug)]
 pub struct Storage<I2C, PS, AS, SN, D> {
@@ -344,7 +461,16 @@ mod private {
     impl<I2C, PS, AS, SN> Sealed for Eeprom24x<I2C, PS, AS, SN> {}
 }
 
+#[cfg(feature = "blocking")]
 mod eeprom24x;
+#[cfg(feature = "async")]
+mod eeprom24x_async;
+#[cfg(feature = "blocking")]
 mod serial_number;
+#[cfg(feature = "async")]
+mod serial_number_async;
 mod slave_addr;
+#[cfg(feature = "blocking")]
 mod storage;
+#[cfg(feature = "async")]
+pub mod storage_async;

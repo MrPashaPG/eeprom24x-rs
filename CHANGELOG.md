@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.8.0] - 2025-08-07
+
+### Added
+
+- Added async support using `embedded-hal-async` library
+- Added `async` feature to enable async functionality
+- Added `Eeprom24xAsyncTrait` for use in generic async code
+- Added async variants of all methods (read_byte_async, write_byte_async, etc.)
+- Added async Storage trait implementation
+- Added support for Embassy embedded-hal shared bus with async examples
+
+### Changed
+
+- Made `blocking` feature default for backward compatibility
+- Restructured features: `default = ["blocking"]`, `blocking = ["embedded-hal"]`, `async = ["embedded-hal-async"]`
+
 ## [0.7.2] - 2024-05-23
 
 ### Added
@@ -123,7 +139,8 @@ may be some API changes in the future, in case I decide that something can be
 further improved. All changes will be documented in this CHANGELOG.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/eldruin/eeprom24x-rs/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/eldruin/eeprom24x-rs/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/eldruin/eeprom24x-rs/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/eldruin/eeprom24x-rs/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/eldruin/eeprom24x-rs/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/eldruin/eeprom24x-rs/compare/v0.6.1...v0.7.0

@@ -3,6 +3,7 @@ use crate::{
     Eeprom24x, Error, Storage,
 };
 use core::cmp::min;
+
 use embedded_hal::{delay::DelayNs, i2c::I2c};
 use embedded_storage::ReadStorage;
 
