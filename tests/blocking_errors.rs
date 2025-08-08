@@ -4,16 +4,22 @@ use eeprom24x::{addr_size, page_size, unique_serial, Eeprom24x, Error, SlaveAddr
 use embedded_hal::i2c::{ErrorType, I2c, Operation};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TestError { Boom }
+enum TestError {
+    Boom,
+}
 
 // Implement embedded-hal I2C Error so TestError satisfies the required bound
 impl embedded_hal::i2c::Error for TestError {
-    fn kind(&self) -> embedded_hal::i2c::ErrorKind { embedded_hal::i2c::ErrorKind::Other }
+    fn kind(&self) -> embedded_hal::i2c::ErrorKind {
+        embedded_hal::i2c::ErrorKind::Other
+    }
 }
 
 struct FailingI2c;
 
-impl ErrorType for FailingI2c { type Error = TestError; }
+impl ErrorType for FailingI2c {
+    type Error = TestError;
+}
 
 impl I2c for FailingI2c {
     fn read(&mut self, _address: u8, _read: &mut [u8]) -> Result<(), Self::Error> {
@@ -24,11 +30,20 @@ impl I2c for FailingI2c {
         Err(TestError::Boom)
     }
 
-    fn write_read(&mut self, _address: u8, _write: &[u8], _read: &mut [u8]) -> Result<(), Self::Error> {
+    fn write_read(
+        &mut self,
+        _address: u8,
+        _write: &[u8],
+        _read: &mut [u8],
+    ) -> Result<(), Self::Error> {
         Err(TestError::Boom)
     }
 
-    fn transaction<'a>(&mut self, _address: u8, _operations: &mut [Operation<'a>]) -> Result<(), Self::Error> {
+    fn transaction(
+        &mut self,
+        _address: u8,
+        _operations: &mut [Operation<'_>],
+    ) -> Result<(), Self::Error> {
         Err(TestError::Boom)
     }
 }

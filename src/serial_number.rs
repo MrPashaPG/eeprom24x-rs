@@ -58,7 +58,7 @@ mod tests {
     #[test]
     fn secure_region_addr_variants_mask_correct_bits() {
         let base = 0b101_0001u8; // Default base with A0 set
-        // 7/8/12/13 keep A2..A0
+                                 // 7/8/12/13 keep A2..A0
         assert_eq!(0b101_1001, secure_region_addr(7, base));
         assert_eq!(0b101_1001, secure_region_addr(8, base));
         assert_eq!(0b101_1001, secure_region_addr(12, base));

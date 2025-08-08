@@ -1,9 +1,11 @@
 #![cfg(feature = "async")]
 
-use eeprom24x::{addr_size, page_size, unique_serial, Eeprom24x, SlaveAddr, Storage};
-use embedded_hal_async::i2c::{ErrorKind, ErrorType as AsyncI2cErrorType, I2c as AsyncI2c, Operation};
 use eeprom24x::storage_async::AsyncStorage;
 use eeprom24x::Eeprom24xAsyncTrait;
+use eeprom24x::{addr_size, page_size, unique_serial, Eeprom24x, SlaveAddr, Storage};
+use embedded_hal_async::i2c::{
+    ErrorKind, ErrorType as AsyncI2cErrorType, I2c as AsyncI2c, Operation,
+};
 
 // A very small async I2C mock that returns predictable data
 #[derive(Default)]
@@ -13,14 +15,20 @@ struct AsyncI2cMock {
 }
 
 impl AsyncI2cMock {
-    fn with_byte(b: u8) -> Self { Self { next_byte: b } }
+    fn with_byte(b: u8) -> Self {
+        Self { next_byte: b }
+    }
 }
 
-impl AsyncI2cErrorType for AsyncI2cMock { type Error = ErrorKind; }
+impl AsyncI2cErrorType for AsyncI2cMock {
+    type Error = ErrorKind;
+}
 
 impl AsyncI2c for AsyncI2cMock {
     async fn read(&mut self, _address: u8, read: &mut [u8]) -> Result<(), Self::Error> {
-        for r in read.iter_mut() { *r = self.next_byte; }
+        for r in read.iter_mut() {
+            *r = self.next_byte;
+        }
         Ok(())
     }
 
@@ -34,16 +42,24 @@ impl AsyncI2c for AsyncI2cMock {
         _write: &[u8],
         read: &mut [u8],
     ) -> Result<(), Self::Error> {
-        for r in read.iter_mut() { *r = self.next_byte; }
+        for r in read.iter_mut() {
+            *r = self.next_byte;
+        }
         Ok(())
     }
 
-    async fn transaction<'a>(&mut self, _address: u8, ops: &mut [Operation<'a>]) -> Result<(), Self::Error> {
+    async fn transaction<'a>(
+        &mut self,
+        _address: u8,
+        ops: &mut [Operation<'a>],
+    ) -> Result<(), Self::Error> {
         for op in ops.iter_mut() {
             match op {
                 Operation::Write(_w) => { /* ignore writes */ }
                 Operation::Read(r) => {
-                    for b in r.iter_mut() { *b = self.next_byte; }
+                    for b in r.iter_mut() {
+                        *b = self.next_byte;
+                    }
                 }
             }
         }
@@ -53,12 +69,31 @@ impl AsyncI2c for AsyncI2cMock {
 
 // Failing async I2C mock to exercise I2C error paths
 struct AsyncI2cMockFail;
-impl AsyncI2cErrorType for AsyncI2cMockFail { type Error = ErrorKind; }
+impl AsyncI2cErrorType for AsyncI2cMockFail {
+    type Error = ErrorKind;
+}
 impl AsyncI2c for AsyncI2cMockFail {
-    async fn read(&mut self, _address: u8, _read: &mut [u8]) -> Result<(), Self::Error> { Err(ErrorKind::Other) }
-    async fn write(&mut self, _address: u8, _write: &[u8]) -> Result<(), Self::Error> { Err(ErrorKind::Other) }
-    async fn write_read(&mut self, _address: u8, _write: &[u8], _read: &mut [u8]) -> Result<(), Self::Error> { Err(ErrorKind::Other) }
-    async fn transaction<'a>(&mut self, _address: u8, _ops: &mut [Operation<'a>]) -> Result<(), Self::Error> { Err(ErrorKind::Other) }
+    async fn read(&mut self, _address: u8, _read: &mut [u8]) -> Result<(), Self::Error> {
+        Err(ErrorKind::Other)
+    }
+    async fn write(&mut self, _address: u8, _write: &[u8]) -> Result<(), Self::Error> {
+        Err(ErrorKind::Other)
+    }
+    async fn write_read(
+        &mut self,
+        _address: u8,
+        _write: &[u8],
+        _read: &mut [u8],
+    ) -> Result<(), Self::Error> {
+        Err(ErrorKind::Other)
+    }
+    async fn transaction<'a>(
+        &mut self,
+        _address: u8,
+        _ops: &mut [Operation<'a>],
+    ) -> Result<(), Self::Error> {
+        Err(ErrorKind::Other)
+    }
 }
 
 // Noop async delay for storage_async
@@ -105,7 +140,7 @@ async fn async_storage_ops() {
     assert_eq!(storage.capacity(), 1 << 7);
 
     // write and read
-    storage.write_async(0x00, &[1,2,3,4]).await.unwrap();
+    storage.write_async(0x00, &[1, 2, 3, 4]).await.unwrap();
     let mut out = [0u8; 4];
     storage.read_async(0x00, &mut out).await.unwrap();
     assert_eq!(out, [0x11; 4]);
@@ -136,7 +171,11 @@ async fn async_error_paths_and_validation() {
     let mut eeprom_ok: Eeprom24x<_, page_size::B8, addr_size::OneByte, unique_serial::No> =
         Eeprom24x::new_24x01_async(i2c_ok, SlaveAddr::default());
     let too_big = [0u8; 9];
-    let err = eeprom_ok.write_page_async(0x00, &too_big).await.err().unwrap();
+    let err = eeprom_ok
+        .write_page_async(0x00, &too_big)
+        .await
+        .err()
+        .unwrap();
     assert!(matches!(err, eeprom24x::Error::TooMuchData));
 
     // InvalidAddr on read
@@ -144,7 +183,11 @@ async fn async_error_paths_and_validation() {
     let mut eeprom_ok2: Eeprom24x<_, page_size::B8, addr_size::OneByte, unique_serial::No> =
         Eeprom24x::new_24x01_async(i2c_ok2, SlaveAddr::default());
     let mut buf = [0u8; 1];
-    let err2 = eeprom_ok2.read_data_async(0x200, &mut buf).await.err().unwrap();
+    let err2 = eeprom_ok2
+        .read_data_async(0x200, &mut buf)
+        .await
+        .err()
+        .unwrap();
     assert!(matches!(err2, eeprom24x::Error::InvalidAddr));
 
     // I2C error is mapped
@@ -215,25 +258,37 @@ async fn async_current_address_read_error_maps() {
 async fn async_unique_serial_onebyte_all_variants() {
     // CS02 (address_bits = 8)
     let mut dev_cs02: Eeprom24x<_, page_size::B8, addr_size::OneByte, unique_serial::Yes> =
-        Eeprom24x::new_24csx02_async(AsyncI2cMock::with_byte(0x22), SlaveAddr::Alternative(true, false, true));
+        Eeprom24x::new_24csx02_async(
+            AsyncI2cMock::with_byte(0x22),
+            SlaveAddr::Alternative(true, false, true),
+        );
     let s02 = dev_cs02.read_unique_serial_async().await.unwrap();
     assert_eq!(s02, [0x22; 16]);
 
     // CS04 (address_bits = 9)
     let mut dev_cs04: Eeprom24x<_, page_size::B16, addr_size::OneByte, unique_serial::Yes> =
-        Eeprom24x::new_24csx04_async(AsyncI2cMock::with_byte(0x44), SlaveAddr::Alternative(false, true, false));
+        Eeprom24x::new_24csx04_async(
+            AsyncI2cMock::with_byte(0x44),
+            SlaveAddr::Alternative(false, true, false),
+        );
     let s04 = dev_cs04.read_unique_serial_async().await.unwrap();
     assert_eq!(s04, [0x44; 16]);
 
     // CS08 (address_bits = 10)
     let mut dev_cs08: Eeprom24x<_, page_size::B16, addr_size::OneByte, unique_serial::Yes> =
-        Eeprom24x::new_24csx08_async(AsyncI2cMock::with_byte(0x88), SlaveAddr::Alternative(true, true, false));
+        Eeprom24x::new_24csx08_async(
+            AsyncI2cMock::with_byte(0x88),
+            SlaveAddr::Alternative(true, true, false),
+        );
     let s08 = dev_cs08.read_unique_serial_async().await.unwrap();
     assert_eq!(s08, [0x88; 16]);
 
     // CS16 (address_bits = 11)
     let mut dev_cs16: Eeprom24x<_, page_size::B16, addr_size::OneByte, unique_serial::Yes> =
-        Eeprom24x::new_24csx16_async(AsyncI2cMock::with_byte(0x16), SlaveAddr::Alternative(false, false, false));
+        Eeprom24x::new_24csx16_async(
+            AsyncI2cMock::with_byte(0x16),
+            SlaveAddr::Alternative(false, false, false),
+        );
     let s16 = dev_cs16.read_unique_serial_async().await.unwrap();
     assert_eq!(s16, [0x16; 16]);
 }
@@ -242,16 +297,24 @@ async fn async_unique_serial_onebyte_all_variants() {
 #[tokio::test]
 async fn async_all_constructors_and_trait_forwarders() {
     // 1) Constructors across families
-    let _d00 = Eeprom24x::new_24x00_async(AsyncI2cMock::with_byte(0), SlaveAddr::default()).destroy_async();
+    let _d00 = Eeprom24x::new_24x00_async(AsyncI2cMock::with_byte(0), SlaveAddr::default())
+        .destroy_async();
     let mut d01: Eeprom24x<_, page_size::B8, addr_size::OneByte, unique_serial::No> =
         Eeprom24x::new_24x01_async(AsyncI2cMock::with_byte(0xAA), SlaveAddr::default());
-    let _d02 = Eeprom24x::new_24x02_async(AsyncI2cMock::with_byte(0), SlaveAddr::default()).destroy_async();
-    let _de48 = Eeprom24x::new_24x02e48_async(AsyncI2cMock::with_byte(0), SlaveAddr::default()).destroy_async();
-    let _de64 = Eeprom24x::new_24x02e64_async(AsyncI2cMock::with_byte(0), SlaveAddr::default()).destroy_async();
-    let _d025e48 = Eeprom24x::new_24x025e48_async(AsyncI2cMock::with_byte(0), SlaveAddr::default()).destroy_async();
-    let _d025e64 = Eeprom24x::new_24x025e64_async(AsyncI2cMock::with_byte(0), SlaveAddr::default()).destroy_async();
-    let _m01 = Eeprom24x::new_m24x01_async(AsyncI2cMock::with_byte(0), SlaveAddr::default()).destroy_async();
-    let _m02 = Eeprom24x::new_m24x02_async(AsyncI2cMock::with_byte(0), SlaveAddr::default()).destroy_async();
+    let _d02 = Eeprom24x::new_24x02_async(AsyncI2cMock::with_byte(0), SlaveAddr::default())
+        .destroy_async();
+    let _de48 = Eeprom24x::new_24x02e48_async(AsyncI2cMock::with_byte(0), SlaveAddr::default())
+        .destroy_async();
+    let _de64 = Eeprom24x::new_24x02e64_async(AsyncI2cMock::with_byte(0), SlaveAddr::default())
+        .destroy_async();
+    let _d025e48 = Eeprom24x::new_24x025e48_async(AsyncI2cMock::with_byte(0), SlaveAddr::default())
+        .destroy_async();
+    let _d025e64 = Eeprom24x::new_24x025e64_async(AsyncI2cMock::with_byte(0), SlaveAddr::default())
+        .destroy_async();
+    let _m01 = Eeprom24x::new_m24x01_async(AsyncI2cMock::with_byte(0), SlaveAddr::default())
+        .destroy_async();
+    let _m02 = Eeprom24x::new_m24x02_async(AsyncI2cMock::with_byte(0), SlaveAddr::default())
+        .destroy_async();
     let d04: Eeprom24x<_, page_size::B16, addr_size::OneByte, unique_serial::No> =
         Eeprom24x::new_24x04_async(AsyncI2cMock::with_byte(0xBB), SlaveAddr::default());
     let d08: Eeprom24x<_, page_size::B16, addr_size::OneByte, unique_serial::No> =
@@ -275,21 +338,41 @@ async fn async_all_constructors_and_trait_forwarders() {
 
     // 2) Call trait-forwarder methods (Eeprom24xAsyncTrait) to exercise wrapper lines
     // One-byte address device
-    Eeprom24xAsyncTrait::write_byte_async(&mut d01, 0x01, 0x7A).await.unwrap();
-    let _ = Eeprom24xAsyncTrait::read_byte_async(&mut d01, 0x01).await.unwrap();
+    Eeprom24xAsyncTrait::write_byte_async(&mut d01, 0x01, 0x7A)
+        .await
+        .unwrap();
+    let _ = Eeprom24xAsyncTrait::read_byte_async(&mut d01, 0x01)
+        .await
+        .unwrap();
     let mut buf = [0u8; 2];
-    Eeprom24xAsyncTrait::read_data_async(&mut d01, 0x01, &mut buf).await.unwrap();
-    let _ = Eeprom24xAsyncTrait::read_current_address_async(&mut d01).await.unwrap();
-    Eeprom24xAsyncTrait::write_page_async(&mut d01, 0x00, &[1, 2, 3]).await.unwrap();
+    Eeprom24xAsyncTrait::read_data_async(&mut d01, 0x01, &mut buf)
+        .await
+        .unwrap();
+    let _ = Eeprom24xAsyncTrait::read_current_address_async(&mut d01)
+        .await
+        .unwrap();
+    Eeprom24xAsyncTrait::write_page_async(&mut d01, 0x00, &[1, 2, 3])
+        .await
+        .unwrap();
     let _ps = Eeprom24xAsyncTrait::page_size(&d01);
 
     // Two-byte address device
-    Eeprom24xAsyncTrait::write_byte_async(&mut d32, 0x0010, 0x7B).await.unwrap();
-    let _ = Eeprom24xAsyncTrait::read_byte_async(&mut d32, 0x0010).await.unwrap();
+    Eeprom24xAsyncTrait::write_byte_async(&mut d32, 0x0010, 0x7B)
+        .await
+        .unwrap();
+    let _ = Eeprom24xAsyncTrait::read_byte_async(&mut d32, 0x0010)
+        .await
+        .unwrap();
     let mut buf2 = [0u8; 3];
-    Eeprom24xAsyncTrait::read_data_async(&mut d32, 0x0020, &mut buf2).await.unwrap();
-    let _ = Eeprom24xAsyncTrait::read_current_address_async(&mut d32).await.unwrap();
-    Eeprom24xAsyncTrait::write_page_async(&mut d32, 0x0000, &[1, 2, 3, 4]).await.unwrap();
+    Eeprom24xAsyncTrait::read_data_async(&mut d32, 0x0020, &mut buf2)
+        .await
+        .unwrap();
+    let _ = Eeprom24xAsyncTrait::read_current_address_async(&mut d32)
+        .await
+        .unwrap();
+    Eeprom24xAsyncTrait::write_page_async(&mut d32, 0x0000, &[1, 2, 3, 4])
+        .await
+        .unwrap();
     let _ps2 = Eeprom24xAsyncTrait::page_size(&d32);
 
     // Call a couple more to mark those constructors as "used"

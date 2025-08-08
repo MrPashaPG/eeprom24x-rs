@@ -1,7 +1,7 @@
+use crate::internal::{build_payload_with_address, validate_page_write};
 use crate::{addr_size, page_size, unique_serial, Eeprom24x, Error, MultiSizeAddr, SlaveAddr};
 use core::marker::PhantomData;
 use embedded_hal::i2c::I2c;
-use crate::internal::{build_payload_with_address, validate_page_write};
 
 /// Common methods
 impl<I2C, PS, AS, SN> Eeprom24x<I2C, PS, AS, SN> {
