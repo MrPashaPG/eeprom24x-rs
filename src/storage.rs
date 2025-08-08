@@ -1,7 +1,4 @@
-use crate::{
-    eeprom24x::{MultiSizeAddr, PageWrite},
-    Eeprom24x, Error, Storage,
-};
+use crate::{eeprom24x::PageWrite, Eeprom24x, Error, MultiSizeAddr, Storage};
 use core::cmp::min;
 
 use embedded_hal::{delay::DelayNs, i2c::I2c};

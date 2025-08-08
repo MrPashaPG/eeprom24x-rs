@@ -1,29 +1,6 @@
-use crate::{addr_size, page_size, private, unique_serial, Eeprom24x, Error, SlaveAddr};
+use crate::{addr_size, page_size, unique_serial, Eeprom24x, Error, MultiSizeAddr, SlaveAddr};
 use core::marker::PhantomData;
 use embedded_hal::i2c::I2c;
-
-pub trait MultiSizeAddr: private::Sealed {
-    const ADDRESS_BYTES: usize;
-
-    fn fill_address(address: u32, payload: &mut [u8]);
-}
-
-impl MultiSizeAddr for addr_size::OneByte {
-    const ADDRESS_BYTES: usize = 1;
-
-    fn fill_address(address: u32, payload: &mut [u8]) {
-        payload[0] = address as u8;
-    }
-}
-
-impl MultiSizeAddr for addr_size::TwoBytes {
-    const ADDRESS_BYTES: usize = 2;
-
-    fn fill_address(address: u32, payload: &mut [u8]) {
-        payload[0] = (address >> 8) as u8;
-        payload[1] = address as u8;
-    }
-}
 
 /// Common methods
 impl<I2C, PS, AS, SN> Eeprom24x<I2C, PS, AS, SN> {
@@ -96,7 +73,6 @@ where
 }
 
 /// Specialization for platforms which implement `embedded_hal::blocking::i2c::Read`
-
 impl<I2C, E, PS, AS, SN> Eeprom24x<I2C, PS, AS, SN>
 where
     I2C: I2c<Error = E>,
@@ -115,7 +91,6 @@ where
 }
 
 /// Specialization for devices without page access (e.g. 24C00)
-
 impl<I2C, E> Eeprom24x<I2C, page_size::No, addr_size::OneByte, unique_serial::No>
 where
     I2C: I2c<Error = E>,
@@ -150,7 +125,6 @@ macro_rules! impl_create {
 }
 
 // This macro could be simplified once https://github.com/rust-lang/rust/issues/42863 is fixed.
-
 macro_rules! impl_for_page_size {
     ( $AS:ident, $addr_bytes:expr, $PS:ident, $page_size:expr,
         $( [ $dev:expr, $part:expr, $address_bits:expr, $SN:ident, $create:ident ] ),* ) => {
@@ -297,7 +271,6 @@ macro_rules! impl_for_page_size {
 /// information about the page size
 ///
 /// TODO: Replace this with `Eeprom24xTrait` once migrated to embedded-hal 1.0
-
 pub trait PageWrite<E> {
     fn page_write(&mut self, address: u32, data: &[u8]) -> Result<(), Error<E>>;
     fn page_size(&self) -> usize;

@@ -1,9 +1,7 @@
-use crate::{addr_size, page_size, unique_serial, Eeprom24x, Error, SlaveAddr};
+use crate::{addr_size, page_size, unique_serial, Eeprom24x, Error, MultiSizeAddr, SlaveAddr};
 use core::marker::PhantomData;
 
 use embedded_hal_async::i2c::I2c as AsyncI2c;
-
-use crate::eeprom24x::MultiSizeAddr;
 
 /// Async common methods
 impl<I2C, PS, AS, SN> Eeprom24x<I2C, PS, AS, SN> {

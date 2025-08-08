@@ -441,7 +441,6 @@ pub trait Eeprom24xAsyncTrait: private::Sealed {
 
 /// EEPROM24X extension which supports the `embedded-storage` traits but requires an
 /// `embedded_hal::delay::DelayNs` to handle the timeouts when writing over page boundaries
-#[cfg(feature = "blocking")]
 #[cfg_attr(feature = "defmt-03", derive(defmt::Format))]
 #[derive(Debug)]
 pub struct Storage<I2C, PS, AS, SN, D> {
@@ -449,6 +448,32 @@ pub struct Storage<I2C, PS, AS, SN, D> {
     pub eeprom: Eeprom24x<I2C, PS, AS, SN>,
     /// Delay provider
     delay: D,
+}
+
+/// Multi-size address trait for different EEPROM address sizes
+pub trait MultiSizeAddr: private::Sealed {
+    /// Number of bytes used for addressing
+    const ADDRESS_BYTES: usize;
+
+    /// Fill the address bytes in the payload buffer
+    fn fill_address(address: u32, payload: &mut [u8]);
+}
+
+impl MultiSizeAddr for addr_size::OneByte {
+    const ADDRESS_BYTES: usize = 1;
+
+    fn fill_address(address: u32, payload: &mut [u8]) {
+        payload[0] = address as u8;
+    }
+}
+
+impl MultiSizeAddr for addr_size::TwoBytes {
+    const ADDRESS_BYTES: usize = 2;
+
+    fn fill_address(address: u32, payload: &mut [u8]) {
+        payload[0] = (address >> 8) as u8;
+        payload[1] = address as u8;
+    }
 }
 
 mod private {
@@ -473,4 +498,5 @@ mod slave_addr;
 #[cfg(feature = "blocking")]
 mod storage;
 #[cfg(feature = "async")]
+/// Async extensions for the Storage type
 pub mod storage_async;
