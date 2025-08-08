@@ -34,11 +34,14 @@ defmt-03 = [
 embedded-hal = { version = "1", optional = true }
 embedded-hal-async = { version = "1", optional = true }
 embedded-storage = "0.3.1"
-defmt = { version = "0.3.6", optional = true }
+defmt = { version = "1.0.1", optional = true }
 
 [dev-dependencies]
+embedded-hal-mock = { version = "0.11.1", features = ["eh1"] }
+tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread", "time"] }
+
+[target.'cfg(unix)'.dev-dependencies]
 linux-embedded-hal = "0.4"
-embedded-hal-mock = { version = "0.10", features = ["eh1"] }
 
 [profile.release]
 lto = true

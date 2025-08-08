@@ -1,3 +1,5 @@
+#![cfg(feature = "blocking")]
+
 use eeprom24x::{Eeprom24x, Error, Storage};
 use embedded_hal_mock::eh1::{
     delay::NoopDelay,
@@ -16,6 +18,15 @@ fn storage_new<PS, AS, SN>(
     eeprom: Eeprom24x<I2cMock, PS, AS, SN>,
 ) -> Storage<I2cMock, PS, AS, SN, NoopDelay> {
     Storage::new(eeprom, NoopDelay)
+}
+
+// Added: ensure Storage::destroy() is covered and returns both parts
+#[test]
+fn can_destroy_storage_and_retrieve_parts() {
+    let storage = storage_new(new_24x01(&[]));
+    let (mut i2c, _delay) = storage.destroy();
+    // Verify mock consumed successfully
+    i2c.done();
 }
 
 macro_rules! can_query_capacity {
@@ -101,3 +112,75 @@ macro_rules! cannot_write_too_much_data {
     };
 }
 for_all_writestorage_ics_with_capacity!(cannot_write_too_much_data);
+
+// New: zero-length write should be a no-op
+#[test]
+fn zero_length_write_is_noop() {
+    use crate::common::new_24x01;
+    let mut storage = storage_new(new_24x01(&[]));
+    storage.write(0x00, &[]).unwrap();
+    destroy(storage.eeprom);
+}
+
+// New: multi-page write across three pages on 1-byte address device
+#[test]
+fn write_across_multiple_pages_one_byte_addr() {
+    use crate::common::DEV_ADDR;
+    // 24x01: page=8; write 20 bytes -> 8 + 8 + 4
+    let big = [0x55u8; 20];
+    let mut expected = Vec::new();
+    // First page @ 0x00
+    expected.push(I2cTrans::write(DEV_ADDR, {
+        let mut v = Vec::with_capacity(1 + 8);
+        v.push(0x00);
+        v.extend_from_slice(&big[0..8]);
+        v
+    }));
+    // Second page @ 0x08
+    expected.push(I2cTrans::write(DEV_ADDR, {
+        let mut v = Vec::with_capacity(1 + 8);
+        v.push(0x08);
+        v.extend_from_slice(&big[8..16]);
+        v
+    }));
+    // Third page @ 0x10 (4 bytes)
+    expected.push(I2cTrans::write(DEV_ADDR, {
+        let mut v = Vec::with_capacity(1 + 4);
+        v.push(0x10);
+        v.extend_from_slice(&big[16..20]);
+        v
+    }));
+
+    let mut storage = storage_new(new_24x01(&expected));
+    embedded_storage::Storage::write(&mut storage, 0, &big).unwrap();
+    destroy(storage.eeprom);
+}
+
+// New: multi-page write across two pages on 2-byte address device
+#[test]
+fn write_across_multiple_pages_two_byte_addr() {
+    use crate::common::{new_24x32, DEV_ADDR};
+    // 24x32: page=32; write 33 bytes -> 32 + 1
+    let big = [0xAAu8; 33];
+    let mut expected = Vec::new();
+    // First page @ 0x0000
+    expected.push(I2cTrans::write(DEV_ADDR, {
+        let mut v = Vec::with_capacity(2 + 32);
+        v.push(0x00); // high
+        v.push(0x00); // low
+        v.extend_from_slice(&big[0..32]);
+        v
+    }));
+    // Second page @ 0x0020
+    expected.push(I2cTrans::write(DEV_ADDR, {
+        let mut v = Vec::with_capacity(2 + 1);
+        v.push(0x00); // high
+        v.push(0x20); // low
+        v.extend_from_slice(&big[32..33]);
+        v
+    }));
+
+    let mut storage = storage_new(new_24x32(&expected));
+    embedded_storage::Storage::write(&mut storage, 0, &big).unwrap();
+    destroy(storage.eeprom);
+}

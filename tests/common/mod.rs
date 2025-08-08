@@ -1,3 +1,5 @@
+#![cfg(feature = "blocking")]
+
 use eeprom24x::{addr_size, page_size, unique_serial, Eeprom24x, SlaveAddr};
 use embedded_hal_mock::eh1::i2c::{Mock as I2cMock, Transaction as I2cTrans};
 

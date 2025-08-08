@@ -1,3 +1,5 @@
+#![cfg(feature = "blocking")]
+
 use embedded_hal_mock::eh1::i2c::Transaction as I2cTrans;
 mod common;
 use crate::common::{

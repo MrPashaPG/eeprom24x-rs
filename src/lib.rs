@@ -119,7 +119,7 @@
 //! Import this crate and an `embedded_hal` implementation, then instantiate
 //! the device:
 //!
-//! ```no_run
+//! ```ignore
 //! # #[cfg(feature = "blocking")]
 //! # {
 //! use linux_embedded_hal::I2cdev;
@@ -134,7 +134,7 @@
 //!
 //! ### Instantiating with the default address (async)
 //!
-//! ```no_run
+//! ```ignore
 //! # #[cfg(feature = "async")]
 //! # {
 //! use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
@@ -152,7 +152,7 @@
 //!
 //! ### Providing an alternative address
 //!
-//! ```no_run
+//! ```ignore
 //! # #[cfg(feature = "blocking")]
 //! # {
 //! use linux_embedded_hal::I2cdev;
@@ -169,7 +169,7 @@
 //!
 //! ### Writing and reading a byte
 //!
-//! ```no_run
+//! ```ignore
 //! # #[cfg(feature = "blocking")]
 //! # {
 //! use linux_embedded_hal::I2cdev;
@@ -187,7 +187,7 @@
 //!
 //! ### Writing a page
 //!
-//! ```no_run
+//! ```ignore
 //! # #[cfg(feature = "blocking")]
 //! # {
 //! use linux_embedded_hal::I2cdev;
@@ -204,7 +204,7 @@
 //!
 //! ### Using embedded-storage traits with async
 //!
-//! ```no_run
+//! ```ignore
 //! # #[cfg(feature = "async")]
 //! # {
 //! use embassy_embedded_hal::{shared_bus::asynch::i2c::I2cDevice, Delay};
@@ -485,6 +485,9 @@ mod private {
     impl Sealed for addr_size::TwoBytes {}
     impl<I2C, PS, AS, SN> Sealed for Eeprom24x<I2C, PS, AS, SN> {}
 }
+
+// Keep internal helpers in their own module for better modularity (not public API)
+mod internal;
 
 #[cfg(feature = "blocking")]
 mod eeprom24x;

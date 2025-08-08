@@ -1,3 +1,5 @@
+#![cfg(feature = "blocking")]
+
 use eeprom24x::Error;
 mod common;
 use crate::common::{

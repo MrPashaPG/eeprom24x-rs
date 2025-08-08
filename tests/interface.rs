@@ -1,3 +1,5 @@
+#![cfg(feature = "blocking")]
+
 use std::fmt::Debug;
 
 use eeprom24x::{Eeprom24xTrait, Error};

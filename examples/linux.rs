@@ -1,7 +1,14 @@
+// This example requires a Unix-like OS with /dev/i2c-* and linux-embedded-hal.
+// It is disabled on non-Unix targets so the crate can build on Windows and others.
+
+#[cfg(unix)]
 use eeprom24x::{Eeprom24x, SlaveAddr};
+#[cfg(unix)]
 use embedded_hal::delay::DelayNs;
+#[cfg(unix)]
 use linux_embedded_hal::{Delay, I2cdev};
 
+#[cfg(unix)]
 fn main() {
     let dev = I2cdev::new("/dev/i2c-1").unwrap();
     let address = SlaveAddr::default();
@@ -21,4 +28,9 @@ fn main() {
     );
 
     let _dev = eeprom.destroy(); // Get the I2C device back
+}
+
+#[cfg(not(unix))]
+fn main() {
+    // Example disabled on non-Unix targets.
 }

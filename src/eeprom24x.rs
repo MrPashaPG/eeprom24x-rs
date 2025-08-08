@@ -1,6 +1,7 @@
 use crate::{addr_size, page_size, unique_serial, Eeprom24x, Error, MultiSizeAddr, SlaveAddr};
 use core::marker::PhantomData;
 use embedded_hal::i2c::I2c;
+use crate::internal::{build_payload_with_address, validate_page_write};
 
 /// Common methods
 impl<I2C, PS, AS, SN> Eeprom24x<I2C, PS, AS, SN> {
@@ -182,33 +183,20 @@ macro_rules! impl_for_page_size {
             /// During this time all inputs are disabled and the EEPROM will not
             /// respond until the write is complete.
             pub fn write_page(&mut self, address: u32, data: &[u8]) -> Result<(), Error<E>> {
-                if data.len() == 0 {
+                validate_page_write::<E>(address, data.len(), $page_size)?;
+                if data.is_empty() {
                     return Ok(());
                 }
-
-                // check this before to ensure that data.len() fits into u32
-                // ($page_size always fits as its maximum value is 256).
-                if data.len() > $page_size {
-                    // This would actually be supported by the EEPROM but
-                    // the data in the page would be overwritten
-                    return Err(Error::TooMuchData);
-                }
-
-                let page_boundary = address | ($page_size as u32 - 1);
-                if address + data.len() as u32 > page_boundary + 1 {
-                    // This would actually be supported by the EEPROM but
-                    // the data in the page would be overwritten
-                    return Err(Error::TooMuchData);
-                }
-
                 let devaddr = self.get_device_address(address)?;
-                let mut payload: [u8; $addr_bytes + $page_size] = [0; $addr_bytes + $page_size];
-                AS::fill_address(address, &mut payload);
-                // only available since Rust 1.31: #[allow(clippy::range_plus_one)]
-                payload[$addr_bytes..$addr_bytes + data.len()].copy_from_slice(&data);
-                // only available since Rust 1.31: #[allow(clippy::range_plus_one)]
+                const TOTAL: usize = $addr_bytes + $page_size;
+                let (payload, tx_len) = build_payload_with_address::<TOTAL>(
+                    address,
+                    $addr_bytes,
+                    data,
+                    |a, out| AS::fill_address(a, out),
+                );
                 self.i2c
-                    .write(devaddr, &payload[..$addr_bytes + data.len()])
+                    .write(devaddr, &payload[..tx_len])
                     .map_err(Error::I2C)
             }
         }

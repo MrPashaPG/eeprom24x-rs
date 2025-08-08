@@ -50,3 +50,31 @@ where
         Ok(serial_bytes)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::secure_region_addr;
+
+    #[test]
+    fn secure_region_addr_variants_mask_correct_bits() {
+        let base = 0b101_0001u8; // Default base with A0 set
+        // 7/8/12/13 keep A2..A0
+        assert_eq!(0b101_1001, secure_region_addr(7, base));
+        assert_eq!(0b101_1001, secure_region_addr(8, base));
+        assert_eq!(0b101_1001, secure_region_addr(12, base));
+        assert_eq!(0b101_1001, secure_region_addr(13, base));
+        // 9 keeps A2..A1
+        assert_eq!(0b101_1000, secure_region_addr(9, base));
+        // 10 keeps only A2
+        assert_eq!(0b101_1000, secure_region_addr(10, base));
+        // 11 ignores A-bits entirely
+        assert_eq!(0b101_1000, secure_region_addr(11, base));
+    }
+
+    #[test]
+    #[should_panic]
+    fn secure_region_addr_invalid_bits_panics() {
+        // Any value outside the handled set should be unreachable
+        let _ = secure_region_addr(0, 0b101_0000);
+    }
+}
